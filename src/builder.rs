@@ -407,6 +407,7 @@ impl<W: Write + Unpin + Send + 'static> Builder<W> {
         }
         self.finished = true;
         self.get_mut().write_all(&[0; 1024]).await?;
+        self.get_mut().flush().await?;
         Ok(())
     }
 }
