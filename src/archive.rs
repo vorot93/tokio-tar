@@ -268,7 +268,9 @@ impl<R: Read + Unpin> Stream for Entries<R> {
         loop {
             let entry = ready_opt_err!(poll_next_raw(self.archive.clone(), &mut self.next, cx));
 
-            if entry.header().as_gnu().is_some() && entry.header().entry_type().is_gnu_longname() {
+            let is_recognized_header =
+                entry.header().as_gnu().is_some() || entry.header().as_ustar().is_some();
+            if is_recognized_header && entry.header().entry_type().is_gnu_longname() {
                 if self.gnu_longname.is_some() {
                     return Poll::Ready(Some(Err(other(
                         "two long name entries describing \
@@ -282,7 +284,7 @@ impl<R: Read + Unpin> Stream for Entries<R> {
                 continue;
             }
 
-            if entry.header().as_gnu().is_some() && entry.header().entry_type().is_gnu_longlink() {
+            if is_recognized_header && entry.header().entry_type().is_gnu_longlink() {
                 if self.gnu_longlink.is_some() {
                     return Poll::Ready(Some(Err(other(
                         "two long name entries describing \
@@ -295,9 +297,7 @@ impl<R: Read + Unpin> Stream for Entries<R> {
                 continue;
             }
 
-            if entry.header().as_ustar().is_some()
-                && entry.header().entry_type().is_pax_local_extensions()
-            {
+            if is_recognized_header && entry.header().entry_type().is_pax_local_extensions() {
                 if self.pax_extensions.is_some() {
                     return Poll::Ready(Some(Err(other(
                         "two pax extensions entries describing \
