@@ -5,9 +5,7 @@ use crate::{
 use std::{borrow::Cow, fs::Metadata, path::Path};
 use tokio::{
     fs,
-    io::{self, AsyncRead as Read, AsyncWrite as Write},
-    prelude::*,
-    stream::*,
+    io::{self, AsyncRead as Read, AsyncReadExt, AsyncWrite as Write, AsyncWriteExt},
 };
 
 /// A structure for building archives
@@ -602,7 +600,7 @@ async fn append_dir_all(
         // In case of a symlink pointing to a directory, is_dir is false, but src.is_dir() will return true
         if is_dir || (is_symlink && follow && src.is_dir()) {
             let mut entries = fs::read_dir(&src).await?;
-            while let Some(entry) = entries.next().await {
+            while let Some(entry) = entries.next_entry().await.transpose() {
                 let entry = entry?;
                 let file_type = entry.file_type().await?;
                 stack.push((entry.path(), file_type.is_dir(), file_type.is_symlink()));

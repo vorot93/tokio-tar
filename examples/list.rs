@@ -4,7 +4,8 @@
 
 extern crate tokio_tar as async_tar;
 
-use tokio::{io::stdin, stream::*};
+use tokio::io::stdin;
+use tokio_stream::*;
 
 use async_tar::Archive;
 

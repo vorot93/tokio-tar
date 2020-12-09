@@ -12,9 +12,9 @@ use std::{
 };
 use tokio::{
     fs::{self, File},
-    prelude::*,
-    stream::*,
+    io::{self, AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt},
 };
+use tokio_stream::*;
 
 use async_tar::{Archive, ArchiveBuilder, Builder, EntryType, Header};
 use filetime::FileTime;

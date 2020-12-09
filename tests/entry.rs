@@ -2,7 +2,8 @@ extern crate tokio_tar as async_tar;
 
 extern crate tempfile;
 
-use tokio::{fs::File, prelude::*, stream::*};
+use tokio::{fs::File, io::AsyncReadExt};
+use tokio_stream::*;
 
 use tempfile::Builder;
 
