@@ -626,7 +626,8 @@ impl<R: Read + Unpin> EntryFields<R> {
                 .create_new(true)
                 .open(dst)
                 .await
-        };
+        }
+
         let mut f = async {
             let mut f = match open(dst).await {
                 Ok(f) => Ok(f),
