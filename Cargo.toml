@@ -26,7 +26,7 @@ contents are never required to be entirely resident in memory all at once.
 [dependencies]
 filetime = "0.2.13"
 futures-core = "0.3"
-tokio = { version = "1.0.1", features = ["fs", "io-util"] }
+tokio = { version = "1.0.1", features = ["fs", "io-util", "rt"] }
 tokio-stream = "0.1.1"
 
 [dev-dependencies]
