@@ -864,15 +864,15 @@ impl<R: Read + Unpin> Read for EntryFields<R> {
             if let Some(ref mut io) = &mut this.read_state {
                 let ret = Pin::new(io).poll_read(cx, into);
                 match ret {
-                    Poll::Ready(Ok(())) if into.filled().len() == 0 => {
+                    Poll::Ready(Ok(())) if into.filled().is_empty() => {
                         this.read_state = None;
                         if this.data.is_empty() {
                             return Poll::Ready(Ok(()));
                         }
                         continue;
                     }
-                    Poll::Ready(Ok(val)) => {
-                        return Poll::Ready(Ok(val));
+                    Poll::Ready(Ok(())) => {
+                        return Poll::Ready(Ok(()));
                     }
                     Poll::Ready(Err(err)) => {
                         return Poll::Ready(Err(err));

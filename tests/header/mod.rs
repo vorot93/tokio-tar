@@ -2,7 +2,7 @@
 
 use std::{
     fs::{self, File},
-    io::{self, Write},
+    io::Write,
     iter, mem,
     path::Path,
     thread, time,
@@ -178,7 +178,7 @@ fn set_metadata_deterministic() {
     let td = t!(Builder::new().prefix("async-tar").tempdir());
     let tmppath = td.path().join("tmpfile");
 
-    fn mk_header(path: &Path, readonly: bool) -> Result<Header, io::Error> {
+    fn mk_header(path: &Path, readonly: bool) -> Header {
         let mut file = t!(File::create(path));
         t!(file.write_all(b"c"));
         let mut perms = t!(file.metadata()).permissions();
@@ -186,13 +186,13 @@ fn set_metadata_deterministic() {
         t!(fs::set_permissions(path, perms));
         let mut h = Header::new_ustar();
         h.set_metadata_in_mode(&t!(path.metadata()), HeaderMode::Deterministic);
-        Ok(h)
+        h
     }
 
     // Create "the same" File twice in a row, one second apart, with differing readonly values.
-    let one = t!(mk_header(tmppath.as_path(), false));
+    let one = mk_header(tmppath.as_path(), false);
     thread::sleep(time::Duration::from_millis(1050));
-    let two = t!(mk_header(tmppath.as_path(), true));
+    let two = mk_header(tmppath.as_path(), true);
 
     // Always expected to match.
     assert_eq!(t!(one.size()), t!(two.size()));
