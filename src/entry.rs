@@ -4,7 +4,9 @@ use crate::{
 use filetime::{self, FileTime};
 use std::{
     borrow::Cow,
-    cmp, fmt,
+    cmp,
+    collections::VecDeque,
+    fmt,
     io::{Error, ErrorKind, SeekFrom},
     marker,
     path::{Component, Path, PathBuf},
@@ -45,7 +47,7 @@ pub struct EntryFields<R: Read + Unpin> {
     pub size: u64,
     pub header_pos: u64,
     pub file_pos: u64,
-    pub data: Vec<EntryIo<R>>,
+    pub data: VecDeque<EntryIo<R>>,
     pub unpack_xattrs: bool,
     pub preserve_permissions: bool,
     pub preserve_mtime: bool,
@@ -848,12 +850,7 @@ impl<R: Read + Unpin> Read for EntryFields<R> {
         let mut this = self.get_mut();
         loop {
             if this.read_state.is_none() {
-                if this.data.is_empty() {
-                    this.read_state = None;
-                } else {
-                    let data = &mut this.data;
-                    this.read_state = Some(data.remove(0));
-                }
+                this.read_state = this.data.pop_front();
             }
 
             if let Some(ref mut io) = &mut this.read_state {

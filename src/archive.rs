@@ -1,5 +1,6 @@
 use std::{
     cmp,
+    collections::VecDeque,
     path::Path,
     pin::Pin,
     sync::{
@@ -394,13 +395,14 @@ fn poll_next_raw<R: Read + Unpin>(
     let file_pos = *next;
     let size = header.entry_size()?;
 
-    let data = EntryIo::Data(archive.clone().take(size));
+    let mut data = VecDeque::with_capacity(1);
+    data.push_back(EntryIo::Data(archive.clone().take(size)));
 
     let ret = EntryFields {
         size,
         header_pos,
         file_pos,
-        data: vec![data],
+        data,
         header,
         long_pathname: None,
         long_linkname: None,
@@ -480,7 +482,7 @@ fn poll_parse_sparse_header<R: Read + Unpin>(
                 ));
             } else if cur < off {
                 let block = io::repeat(0).take(off - cur);
-                data.push(EntryIo::Pad(block));
+                data.push_back(EntryIo::Pad(block));
             }
             cur = off
                 .checked_add(len)
@@ -491,7 +493,7 @@ fn poll_parse_sparse_header<R: Read + Unpin>(
                      listed",
                 )
             })?;
-            data.push(EntryIo::Data(reader.clone().take(len)));
+            data.push_back(EntryIo::Data(reader.clone().take(len)));
             Ok(())
         };
         for block in gnu.sparse.iter() {
