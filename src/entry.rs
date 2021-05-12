@@ -79,8 +79,8 @@ pub enum EntryIo<R: Read + Unpin> {
 impl<R: Read + Unpin> fmt::Debug for EntryIo<R> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            EntryIo::Pad(_) => write!(f, "EntryIo::Pad"),
-            EntryIo::Data(_) => write!(f, "EntryIo::Data"),
+            EntryIo::Pad(t) => write!(f, "EntryIo::Pad({})", t.limit()),
+            EntryIo::Data(t) => write!(f, "EntryIo::Data({})", t.limit()),
         }
     }
 }
@@ -580,12 +580,7 @@ impl<R: Read + Unpin> EntryFields<R> {
                 Err(io::Error::new(io::ErrorKind::Other, "Not implemented"))
             }
 
-            #[cfg(windows)]
-            async fn symlink(src: &Path, dst: &Path) -> io::Result<()> {
-                tokio::fs::os::windows::symlink_file(src, dst).await
-            }
-
-            #[cfg(any(unix, target_os = "redox"))]
+            #[cfg(any(windows, unix, target_os = "redox"))]
             async fn symlink(src: &Path, dst: &Path) -> io::Result<()> {
                 tokio::fs::symlink(src, dst).await
             }
@@ -862,9 +857,10 @@ impl<R: Read + Unpin> Read for EntryFields<R> {
             }
 
             if let Some(ref mut io) = &mut this.read_state {
+                let start = into.filled().len();
                 let ret = Pin::new(io).poll_read(cx, into);
                 match ret {
-                    Poll::Ready(Ok(())) if into.filled().is_empty() => {
+                    Poll::Ready(Ok(())) if into.filled().len() == start => {
                         this.read_state = None;
                         if this.data.is_empty() {
                             return Poll::Ready(Ok(()));
