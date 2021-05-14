@@ -584,6 +584,7 @@ impl<R: Read + Unpin> EntryFields<R> {
 
             #[cfg(windows)]
             async fn symlink(src: &Path, dst: &Path) -> io::Result<()> {
+                let (src, dst) = (src.to_owned(), dst.to_owned());
                 tokio::task::spawn_blocking(|| std::os::windows::fs::symlink_file(src, dst))
                     .await
                     .unwrap()
