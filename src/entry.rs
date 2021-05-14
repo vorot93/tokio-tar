@@ -582,7 +582,14 @@ impl<R: Read + Unpin> EntryFields<R> {
                 Err(io::Error::new(io::ErrorKind::Other, "Not implemented"))
             }
 
-            #[cfg(any(windows, unix, target_os = "redox"))]
+            #[cfg(windows)]
+            async fn symlink(src: &Path, dst: &Path) -> io::Result<()> {
+                tokio::task::spawn_blocking(|| std::os::windows::fs::symlink_file(src, dst))
+                    .await
+                    .unwrap()
+            }
+
+            #[cfg(any(unix, target_os = "redox"))]
             async fn symlink(src: &Path, dst: &Path) -> io::Result<()> {
                 tokio::fs::symlink(src, dst).await
             }
