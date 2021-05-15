@@ -4,7 +4,8 @@ version = "0.2.0"
 authors = [
     "Alex Crichton <alex@alexcrichton.com>",
     "dignifiedquire <me@dignifiequire.com>",
-    "Artem Vorotnikov <artem@vorotnikov.me>"
+    "Artem Vorotnikov <artem@vorotnikov.me>",
+    "Aiden McClelland <me@drbonez.dev>",
 ]
 homepage = "https://github.com/vorot93/tokio-tar"
 repository = "https://github.com/vorot93/tokio-tar"
@@ -23,20 +24,21 @@ contents are never required to be entirely resident in memory all at once.
 """
 
 [dependencies]
-filetime = "0.2.8"
+filetime = "0.2"
 futures-core = "0.3"
-tokio = { version = "0.2.8", features = ["fs", "io-util", "sync", "stream"] }
+tokio = { version = "1", features = ["fs", "io-util", "rt"] }
+tokio-stream = "0.1"
 
 [dev-dependencies]
 tempfile = "3"
-tokio = { version = "0.2.8", features = ["full"] }
+tokio = { version = "1", features = ["full"] }
 
 [target."cfg(unix)".dependencies]
 xattr = { version = "0.2", optional = true }
 libc = "0.2"
 
 [target.'cfg(target_os = "redox")'.dependencies]
-redox_syscall = "0.1"
+redox_syscall = "0.2"
 
 [features]
 default = ["xattr"]

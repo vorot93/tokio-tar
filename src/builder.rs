@@ -5,9 +5,7 @@ use crate::{
 use std::{borrow::Cow, fs::Metadata, path::Path};
 use tokio::{
     fs,
-    io::{self, AsyncRead as Read, AsyncWrite as Write},
-    prelude::*,
-    stream::*,
+    io::{self, AsyncRead as Read, AsyncReadExt, AsyncWrite as Write, AsyncWriteExt},
 };
 
 /// A structure for building archives
@@ -411,10 +409,10 @@ impl<W: Write + Unpin + Send + 'static> Builder<W> {
     }
 }
 
-async fn append(
-    mut dst: &mut (dyn Write + Unpin),
+async fn append<Dst: Write + Unpin + ?Sized, Data: Read + Unpin + ?Sized>(
+    mut dst: &mut Dst,
     header: &Header,
-    mut data: &mut (dyn Read + Unpin),
+    mut data: &mut Data,
 ) -> io::Result<()> {
     dst.write_all(header.as_bytes()).await?;
     let len = io::copy(&mut data, &mut dst).await?;
@@ -429,8 +427,8 @@ async fn append(
     Ok(())
 }
 
-async fn append_path_with_name(
-    dst: &mut (dyn Write + Unpin),
+async fn append_path_with_name<Dst: Write + Unpin + ?Sized>(
+    dst: &mut Dst,
     path: &Path,
     name: Option<&Path>,
     mode: HeaderMode,
@@ -483,8 +481,8 @@ async fn append_path_with_name(
     }
 }
 
-async fn append_file(
-    dst: &mut (dyn Write + Unpin),
+async fn append_file<Dst: Write + Unpin + ?Sized>(
+    dst: &mut Dst,
     path: &Path,
     file: &mut fs::File,
     mode: HeaderMode,
@@ -494,8 +492,8 @@ async fn append_file(
     Ok(())
 }
 
-async fn append_dir(
-    dst: &mut (dyn Write + Unpin),
+async fn append_dir<Dst: Write + Unpin + ?Sized>(
+    dst: &mut Dst,
     path: &Path,
     src_path: &Path,
     mode: HeaderMode,
@@ -520,8 +518,8 @@ fn prepare_header(size: u64, entry_type: EntryType) -> Header {
     header
 }
 
-async fn prepare_header_path(
-    dst: &mut (dyn Write + Unpin),
+async fn prepare_header_path<Dst: Write + Unpin + ?Sized>(
+    dst: &mut Dst,
     header: &mut Header,
     path: &Path,
 ) -> io::Result<()> {
@@ -549,8 +547,8 @@ async fn prepare_header_path(
     Ok(())
 }
 
-async fn prepare_header_link(
-    dst: &mut (dyn Write + Unpin),
+async fn prepare_header_link<Dst: Write + Unpin + ?Sized>(
+    dst: &mut Dst,
     header: &mut Header,
     link_name: &Path,
 ) -> io::Result<()> {
@@ -567,11 +565,11 @@ async fn prepare_header_link(
     Ok(())
 }
 
-async fn append_fs(
-    dst: &mut (dyn Write + Unpin),
+async fn append_fs<Dst: Write + Unpin + ?Sized, R: Read + Unpin + ?Sized>(
+    dst: &mut Dst,
     path: &Path,
     meta: &Metadata,
-    read: &mut (dyn Read + Unpin),
+    read: &mut R,
     mode: HeaderMode,
     link_name: Option<&Path>,
 ) -> io::Result<()> {
@@ -588,8 +586,8 @@ async fn append_fs(
     Ok(())
 }
 
-async fn append_dir_all(
-    dst: &mut (dyn Write + Unpin),
+async fn append_dir_all<Dst: Write + Unpin + ?Sized>(
+    dst: &mut Dst,
     path: &Path,
     src_path: &Path,
     mode: HeaderMode,
@@ -602,7 +600,7 @@ async fn append_dir_all(
         // In case of a symlink pointing to a directory, is_dir is false, but src.is_dir() will return true
         if is_dir || (is_symlink && follow && src.is_dir()) {
             let mut entries = fs::read_dir(&src).await?;
-            while let Some(entry) = entries.next().await {
+            while let Some(entry) = entries.next_entry().await.transpose() {
                 let entry = entry?;
                 let file_type = entry.file_type().await?;
                 stack.push((entry.path(), file_type.is_dir(), file_type.is_symlink()));

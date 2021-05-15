@@ -513,6 +513,7 @@ impl Header {
     ///
     /// A return value of `None` indicates that the user name is not present in
     /// this header format.
+    #[allow(clippy::manual_map)]
     pub fn username_bytes(&self) -> Option<&[u8]> {
         if let Some(ustar) = self.as_ustar() {
             Some(ustar.username_bytes())
@@ -555,6 +556,7 @@ impl Header {
     ///
     /// A return value of `None` indicates that the group name is not present in
     /// this header format.
+    #[allow(clippy::manual_map)]
     pub fn groupname_bytes(&self) -> Option<&[u8]> {
         if let Some(ustar) = self.as_ustar() {
             Some(ustar.groupname_bytes())

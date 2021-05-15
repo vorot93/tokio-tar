@@ -1,5 +1,6 @@
 use std::{
     cmp,
+    collections::VecDeque,
     path::Path,
     pin::Pin,
     sync::{
@@ -9,11 +10,10 @@ use std::{
     task::{Context, Poll},
 };
 use tokio::{
-    io,
-    prelude::{AsyncRead as Read, *},
-    stream::*,
+    io::{self, AsyncRead as Read, AsyncReadExt},
     sync::Mutex,
 };
+use tokio_stream::*;
 
 use crate::{
     entry::{EntryFields, EntryIo},
@@ -395,13 +395,14 @@ fn poll_next_raw<R: Read + Unpin>(
     let file_pos = *next;
     let size = header.entry_size()?;
 
-    let data = EntryIo::Data(archive.clone().take(size));
+    let mut data = VecDeque::with_capacity(1);
+    data.push_back(EntryIo::Data(archive.clone().take(size)));
 
     let ret = EntryFields {
         size,
         header_pos,
         file_pos,
-        data: vec![data],
+        data,
         header,
         long_pathname: None,
         long_linkname: None,
@@ -481,7 +482,7 @@ fn poll_parse_sparse_header<R: Read + Unpin>(
                 ));
             } else if cur < off {
                 let block = io::repeat(0).take(off - cur);
-                data.push(EntryIo::Pad(block));
+                data.push_back(EntryIo::Pad(block));
             }
             cur = off
                 .checked_add(len)
@@ -492,7 +493,7 @@ fn poll_parse_sparse_header<R: Read + Unpin>(
                      listed",
                 )
             })?;
-            data.push(EntryIo::Data(reader.clone().take(len)));
+            data.push_back(EntryIo::Data(reader.clone().take(len)));
             Ok(())
         };
         for block in gnu.sparse.iter() {
@@ -537,8 +538,8 @@ impl<R: Read + Unpin> Read for Archive<R> {
     fn poll_read(
         self: Pin<&mut Self>,
         cx: &mut Context<'_>,
-        into: &mut [u8],
-    ) -> Poll<io::Result<usize>> {
+        into: &mut io::ReadBuf<'_>,
+    ) -> Poll<io::Result<()>> {
         let mut r = if let Ok(v) = self.inner.obj.try_lock() {
             v
         } else {
@@ -547,9 +548,11 @@ impl<R: Read + Unpin> Read for Archive<R> {
 
         let res = futures_core::ready!(Pin::new(&mut *r).poll_read(cx, into));
         match res {
-            Ok(i) => {
-                self.inner.pos.fetch_add(i as u64, Ordering::SeqCst);
-                Poll::Ready(Ok(i))
+            Ok(()) => {
+                self.inner
+                    .pos
+                    .fetch_add(into.filled().len() as u64, Ordering::SeqCst);
+                Poll::Ready(Ok(()))
             }
             Err(err) => Poll::Ready(Err(err)),
         }
@@ -567,15 +570,16 @@ fn poll_try_read_all<R: Read + Unpin>(
 ) -> Poll<io::Result<bool>> {
     let mut read = 0;
     while read < buf.len() {
-        match futures_core::ready!(Pin::new(&mut source).poll_read(cx, &mut buf[read..])) {
-            Ok(0) => {
+        let mut read_buf = io::ReadBuf::new(&mut buf[read..]);
+        match futures_core::ready!(Pin::new(&mut source).poll_read(cx, &mut read_buf)) {
+            Ok(()) if read_buf.filled().is_empty() => {
                 if read == 0 {
                     return Poll::Ready(Ok(false));
                 }
 
                 return Poll::Ready(Err(other("failed to read entire block")));
             }
-            Ok(n) => read += n,
+            Ok(()) => read += read_buf.filled().len(),
             Err(err) => return Poll::Ready(Err(err)),
         }
     }
@@ -592,12 +596,13 @@ fn poll_skip<R: Read + Unpin>(
     let mut buf = [0u8; 4096 * 8];
     while amt > 0 {
         let n = cmp::min(amt, buf.len() as u64);
-        match futures_core::ready!(Pin::new(&mut source).poll_read(cx, &mut buf[..n as usize])) {
-            Ok(n) if n == 0 => {
+        let mut read_buf = io::ReadBuf::new(&mut buf[..n as usize]);
+        match futures_core::ready!(Pin::new(&mut source).poll_read(cx, &mut read_buf)) {
+            Ok(()) if read_buf.filled().is_empty() => {
                 return Poll::Ready(Err(other("unexpected EOF during skip")));
             }
-            Ok(n) => {
-                amt -= n as u64;
+            Ok(()) => {
+                amt -= read_buf.filled().len() as u64;
             }
             Err(err) => return Poll::Ready(Err(err)),
         }
