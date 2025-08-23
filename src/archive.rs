@@ -368,7 +368,7 @@ fn poll_next_raw<R: Read + Unpin>(
     loop {
         // Seek to the start of the next header in the archive
         if current_header.is_none() {
-            let delta = *next - archive.inner.pos.load(Ordering::SeqCst);
+            let Some(delta) = next.checked_sub(archive.inner.pos.load(Ordering::SeqCst)) else { return Poll::Ready(None) };
             match futures_core::ready!(poll_skip(&mut archive, cx, delta)) {
                 Ok(_) => {}
                 Err(err) => return Poll::Ready(Some(Err(err))),
