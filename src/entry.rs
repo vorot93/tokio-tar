@@ -589,7 +589,7 @@ impl<R: Read + Unpin> EntryFields<R> {
                     .unwrap()
             }
 
-            #[cfg(any(unix, target_os = "redox"))]
+            #[cfg(unix)]
             async fn symlink(src: &Path, dst: &Path) -> io::Result<()> {
                 tokio::fs::symlink(src, dst).await
             }
@@ -712,7 +712,7 @@ impl<R: Read + Unpin> EntryFields<R> {
             })
         }
 
-        #[cfg(any(unix, target_os = "redox"))]
+        #[cfg(unix)]
         async fn _set_perms(
             dst: &Path,
             f: Option<&mut fs::File>,
@@ -810,7 +810,6 @@ impl<R: Read + Unpin> EntryFields<R> {
         // https://en.wikipedia.org/wiki/Extended_file_attributes#Windows_NT
         #[cfg(any(
             windows,
-            target_os = "redox",
             not(feature = "xattr"),
             target_arch = "wasm32"
         ))]
