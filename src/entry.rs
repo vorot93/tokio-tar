@@ -508,7 +508,7 @@ impl<R: Read + Unpin> EntryFields<R> {
         if kind.is_dir() {
             self.unpack_dir(dst).await?;
             if let Ok(mode) = self.header.mode() {
-                set_perms(dst, None, mode, self.preserve_permissions).await?;
+                set_perms(dst, None, mode | 0o100, self.preserve_permissions).await?;
             }
             return Ok(Unpacked::Other);
         } else if kind.is_hard_link() || kind.is_symlink() {

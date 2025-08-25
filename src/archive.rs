@@ -426,6 +426,9 @@ fn poll_next_raw<R: Read + Unpin>(
 
     let mut data = VecDeque::with_capacity(1);
     data.push_back(EntryIo::Data(archive.clone().take(size)));
+    drop(header);
+
+    let header = current_header.take().unwrap();
 
     let header = current_header.take().unwrap();
 
